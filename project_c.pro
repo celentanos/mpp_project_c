@@ -30,4 +30,5 @@ INCLUDEPATH += /usr/lib/openmpi/include
 DEPENDPATH += /usr/lib/openmpi/include
 
 DISTFILES += \
-    README.md
+    README.md \
+    build.sh
