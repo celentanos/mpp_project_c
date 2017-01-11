@@ -28,3 +28,6 @@ unix:!macx: LIBS += -L/usr/lib/openmpi/lib/ -lmpi
 
 INCLUDEPATH += /usr/lib/openmpi/include
 DEPENDPATH += /usr/lib/openmpi/include
+
+DISTFILES += \
+    README.md
