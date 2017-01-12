@@ -81,6 +81,10 @@ int checkProcResults(int ** &results, int procSize)
                     break;
                 }
             }
+            if (k == 1) {                       // Wenn Rect nur im ersten Block
+                erg = 0;
+                j0 = results[k][PROC_J0];
+            }
             if (k + 1 < procSize && results[k + 1][PROC_R] == RK_RECT) {
                 if (results[k][PROC_J0] != results[k + 1][PROC_J1] - 1) {
                     erg = 1;
@@ -99,11 +103,15 @@ int checkProcResults(int ** &results, int procSize)
                 }
                 erg = 0;
                 j0 = results[k + 1][PROC_J0];
+            } else if (k == procSize - 1) {      // Wenn Rect nur im letzten Block
+                erg = 0;
+                j0 = results[k][PROC_J0];
             }
-        } else {
+        } else if (results[k][PROC_R] == RK_WRONG_RECT) {
             erg = 1;
+            break;
+        } else
             inRectFlag = 0;
-        }
     }
     if (!erg) {
         cout << "Ergebnis: Es gibt ein zusammenhängendes Rechteck! :)" << endl;
