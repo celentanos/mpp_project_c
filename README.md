@@ -19,7 +19,7 @@ Die Matrix kann mit dem Flag __-p__ ausgegeben werden.
 
 Ausgabe:
 
-        ........
+        S.......
         ........
         ........
         ..XXXX..
@@ -28,7 +28,8 @@ Ausgabe:
         ..XXXX..
         ..XXXX..
 
-#### Indizierung fängt bei 0 an.
+**Achtung!** Indizierung fängt bei __0__ an und der Startpunk ist mit __S__
+(fehlt in der wirklichen Ausgabe) gekennzeichnet.
 
 ----
 
