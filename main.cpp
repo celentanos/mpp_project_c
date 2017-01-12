@@ -262,7 +262,7 @@ int printData(char *&data, int dim, int blockDim_ = 0, int rank = 0)
     return 0;
 }
 
-int printResults(int procSize, int **&results)
+int printResults(int procSize, int ** &results)
 {
     stringstream ss;
     for (int i = 0; i < procSize; ++i) {
@@ -536,8 +536,10 @@ int main(int argc, char **argv)
 
             // Aufräumen -------------------------------------------------------
             for (int i = 0; i < procSize; ++i)
-                delete[] results[i];
-            delete[] results;
+                if (results[i])
+                    delete[] results[i];
+            if (results)
+                delete[] results;
             if (data)
                 delete[] data;
         }
