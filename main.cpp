@@ -3,8 +3,8 @@
 #include <unistd.h>     // sleep, getopt
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
 #include <string.h>
+#include <string>
 #include <sstream>
 #include <vector>
 #include <iostream>     // es wird für den Compiler im Pool benötigt!
@@ -13,7 +13,8 @@
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 
 #define GEN_OPTS                5       /// Anzahl der Parameter für die Gen-Funktion
-#define GEN_OPT_DELIM           "_"
+#define GEN_OPT_DELIM_STR       "_"
+#define GEN_OPT_DELIM_CHAR      '_'
 
 #define DATA_0_CHAR             '.'
 #define DATA_0_STR              "."
@@ -275,16 +276,12 @@ int genData(int n, int x, int y, int w, int h)
 
 int parseGenOptions(string s, int &n, int &x, int &y, int &w, int &h)
 {
-    string delimiter = GEN_OPT_DELIM;
-    size_t pos = 0;
     string token;
+    stringstream ss;
     vector<string> v;
-    while ((pos = s.find(delimiter)) != string::npos) {
-        token = s.substr(0, pos);
+    ss.str(s);
+    while (getline(ss, token, GEN_OPT_DELIM_CHAR))
         v.push_back(token);
-        s.erase(0, pos + delimiter.length());
-    }
-    v.push_back(s);
 
     if (v.size() == 1) {
         n = stoi(v[0]);
