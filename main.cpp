@@ -67,7 +67,7 @@ int checkProcResults(int ** &results, int procSize)
     int i1 = 0;
     int j0 = 0;
     int j1 = 0;
-    int erg = 0;
+    int erg = 1;
     int inRect = 0;
     int inRectFlag = 0;
     for (int k = 1; k < procSize; ++k) {
@@ -209,11 +209,9 @@ int readData(int show = 0, char **data = 0, int *dim = 0)
                 if (!dimFlag) {
                     dimFlag++;
                     *dim = (int)line.size();
-                    if (*dim * *dim > numeric_limits<int>::max()) {
-                        cout << "Int-Limit: " << numeric_limits<int>::max() << " < " << line.size()*line.size() << endl;
-                        return ERR_INT_LIMIT_MAX;
-                    } else if (*dim * *dim < 1) {
-                        cout << "Min-Limit: " << *dim * *dim << " < 1 || overflow von " << numeric_limits<int>::max() << endl;
+                    if (*dim * *dim < 1) {
+                        cout << "Min-Limit:\t" << numeric_limits<int>::max() << " overflow?!: 1 > " << *dim * *dim << endl;
+                        cout << "dim*dim:\t" << line.size()*line.size() << endl;
                         return ERR_INT_LIMIT_MIN;
                     }
                     try {
