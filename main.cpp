@@ -577,8 +577,10 @@ int main(int argc, char **argv)
                 findRectInBlock(data, result, rank, dim, blockDim);
                 MPI_Send(result, PROC_NUMBER, MPI_INT, ROOT, 99, MPI_COMM_WORLD);
             }
-            delete[] result;
-            delete[] data;
+            if (result)
+                delete[] result;
+            if (data)
+                delete[] data;
         }
     MPI_Finalize();
     return 0;
