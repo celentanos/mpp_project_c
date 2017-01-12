@@ -9,6 +9,7 @@
 #include <vector>
 #include <iostream>     // es wird für den Compiler im Pool benötigt!
 #include <fstream>
+#include <limits>
 
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 
@@ -32,6 +33,9 @@
 #define ERR_FILE_OPEN           ERR-6
 #define ERR_READ_DATA_ARGS      ERR-7
 #define ERR_DATA_PROC_DIM       ERR-8
+#define ERR_BAD_ALLOC           ERR-9
+#define ERR_INT_LIMIT_MAX       ERR-10
+#define ERR_INT_LIMIT_MIN       ERR-11
 
 #define ROOT                    0
 
@@ -205,7 +209,20 @@ int readData(int show = 0, char **data = 0, int *dim = 0)
                 if (!dimFlag) {
                     dimFlag++;
                     *dim = (int)line.size();
-                    *data = new char[*dim * *dim];
+                    if (*dim * *dim > numeric_limits<int>::max()) {
+                        cout << "Int-Limit: " << numeric_limits<int>::max() << " < " << line.size()*line.size() << endl;
+                        return ERR_INT_LIMIT_MAX;
+                    } else if (*dim * *dim < 1) {
+                        cout << "Min-Limit: " << *dim * *dim << " < 1 || overflow von " << numeric_limits<int>::max() << endl;
+                        return ERR_INT_LIMIT_MIN;
+                    }
+                    try {
+                        *data = new char[*dim * *dim];
+                    } catch (bad_alloc &ba) {
+                        cout << "Es wurde versucht " << *dim * *dim << " Bytes zu allokieren..." << endl;
+                        cerr << "bad_alloc caught: " << ba.what() << endl;
+                        return ERR_BAD_ALLOC;
+                    }
                 }
                 for (int i = 0; i < (int)line.size(); ++i) {
                     if (line.at((ulong)i) == DATA_0_CHAR)
