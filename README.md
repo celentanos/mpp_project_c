@@ -12,7 +12,6 @@ Der Aufruf:
 
 generiert eine Matrix mit 8 * 8 Elementen mit einem Rechteck in der
 Position x=2, y=3, der Länge w=4 und der Höhe h=5.
-__Indizierung fängt bei 0 an.__
 
 Die Matrix kann mit dem Flag __-p__ ausgegeben werden.
 
@@ -28,6 +27,9 @@ Ausgabe:
         ..XXXX..
         ..XXXX..
         ..XXXX..
+
+#### Indizierung fängt bei 0 an.
+
 ----
 
 n der Größe 10000 bedeutet 10000² + 10000 (_'\\n'_) = **100.010.000 Zeichen**.
