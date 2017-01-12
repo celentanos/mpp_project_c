@@ -2,12 +2,37 @@
 
 Mit dem Aufruf:
 
-        mpirun -np 4 project_c -f data -g 10000
+        mpirun -np 4 project_c -f data8 -g 8
 
-wird eine Testdatei der Größe 10000² + 10000 (_'\\n'_) = **100.010.000 Zeichen**
-generiert. Da ein Zeichen 1 Byte beträgt, resultiert sich eine Größe von
-**100,01 MB**. 100,01 MB entspricht:
-100.010.000 / 1024 / 1024 = **95,376968384 MiB**.
+wird eine leere Matrix in die Datei _**data8**_ mit 8 * 8 elementen generiert.
+
+Der Aufruf:
+
+        mpirun -np 4 project_c -f data8 -g 8_2_3_4_5
+
+generiert eine Matrix mit 8 * 8 Elementen mit einem Rechteck in der
+Position x=2, y=3, der Länge w=4 und der Höhe h=5.
+__Indizierung fängt bei 0 an.__
+
+Die Matrix kann mit dem Flag __-p__ ausgegeben werden.
+
+        mpirun -np 4 project_c -f data8 -p
+
+Ausgabe:
+
+        ........
+        ........
+        ........
+        ..XXXX..
+        ..XXXX..
+        ..XXXX..
+        ..XXXX..
+        ..XXXX..
+----
+
+n der Größe 10000 bedeutet 10000² + 10000 (_'\\n'_) = **100.010.000 Zeichen**.
+Da ein Zeichen 1 Byte beträgt, resultiert sich eine Größe von **100,01 MB**.
+100,01 MB entspricht: 100.010.000 / 1024 / 1024 = **95,376968384 MiB**.
 
 Die generierte Dateigröße wächst exponentiell (auf _'\\n'_ am Ende der Zeile
 verzichtet).

@@ -154,7 +154,7 @@ int findRectInBlock(char *&data, int *&result, int rank, int dim, int blockDim)
                          * ..XXXX.
                          * ..XXX.. */
                         result[PROC_R] = RK_WRONG_RECT;
-                        cout << "case1, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
+//                        cout << "case1, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
                         break;
                     } else
                         result[PROC_I1] = i;    // rechts
@@ -166,7 +166,7 @@ int findRectInBlock(char *&data, int *&result, int rank, int dim, int blockDim)
                      * ...XX...
                      * ..XXX... */
                     result[PROC_R] = RK_WRONG_RECT;
-                    cout << "case2, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
+//                    cout << "case2, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
                     break;
                 }
             } else { // 0 ##############################################
@@ -176,7 +176,7 @@ int findRectInBlock(char *&data, int *&result, int rank, int dim, int blockDim)
                          * ..XX...
                          * ..XXX.. */
                         result[PROC_R] = RK_WRONG_RECT;
-                        cout << "case3, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
+//                        cout << "case3, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
                         break;
                     }
                 inRect = 0;
@@ -481,6 +481,9 @@ int main(int argc, char **argv)
             // Senden der Datenpakete ------------------------------------------
             int result[PROC_NUMBER];
             int **results = new int *[procSize];
+            for (int i = 0; i < procSize; ++i)
+                results[i] = new int[PROC_NUMBER];
+            MPI_Request request;
             for (int t = 0; t < times; ++t) {
                 // Zeit start --------------------------------------------------
                 MPI_Barrier(MPI_COMM_WORLD);
@@ -488,16 +491,14 @@ int main(int argc, char **argv)
 
                 if (!blockDimRest)
                     for (int i = 1; i < procSize; ++i)
-                        MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
+                        MPI_Isend(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD, &request);
                 else {
                     for (int i = 1; i < procSize - 1; ++i)
-                        MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
-                    MPI_Send(data + ((procSize - 2) * dim * blockDim), dim * blockDimRest, MPI_CHAR, procSize - 1, 99, MPI_COMM_WORLD);
+                        MPI_Isend(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD, &request);
+                    MPI_Isend(data + ((procSize - 2) * dim * blockDim), dim * blockDimRest, MPI_CHAR, procSize - 1, 99, MPI_COMM_WORLD, &request);
                 }
 
                 // Empfangen der Resultate -------------------------------------
-                for (int i = 0; i < procSize; ++i)
-                    results[i] = new int[PROC_NUMBER];
                 for (int i = 0; i < procSize; ++i)
                     memset(results[i], 0, PROC_NUMBER * sizeof (int));
 
@@ -568,6 +569,7 @@ int main(int argc, char **argv)
                     if ((err = printData(data, dim, blockDim, rank)))
                         cout << "ERROR:" << err << endl;
                 }
+//                cout << "rank:" << rank << "\tblockDim:" << blockDim << "\tdim:" << dim << endl;
                 // Finde Blöcke ------------------------------------------------
                 memset(result, PROC_EMPTY, PROC_NUMBER * sizeof (int));
                 findRectInBlock(data, result, rank, dim, blockDim);
