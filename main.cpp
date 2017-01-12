@@ -236,7 +236,7 @@ int readData(int show = 0, char **data = 0, int *dim = 0)
     return 0;
 }
 
-int printData(char *data, int dim, int blockDim_ = 0, int rank = 0)
+int printData(char *&data, int dim, int blockDim_ = 0, int rank = 0)
 {
     string s;
     stringstream ss;
@@ -262,7 +262,7 @@ int printData(char *data, int dim, int blockDim_ = 0, int rank = 0)
     return 0;
 }
 
-int printResults(int procSize, int **results)
+int printResults(int procSize, int **&results)
 {
     stringstream ss;
     for (int i = 0; i < procSize; ++i) {
