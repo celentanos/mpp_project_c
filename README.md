@@ -4,7 +4,7 @@ Mit dem Aufruf:
 
         mpirun -np 4 project_c -f data -g 10000
 
-wird eine Testdatei der Größe 10000^2 + 10000 (_'\\n'_) = **100.010.000 Zeichen**
+wird eine Testdatei der Größe 10000² + 10000 (_'\\n'_) = **100.010.000 Zeichen**
 generiert. Da ein Zeichen 1 Byte beträgt, resultiert sich eine Größe von
 **100,01 MB**. 100,01 MB entspricht:
 100.010.000 / 1024 / 1024 = **95,376968384 MiB**.
@@ -29,3 +29,5 @@ n           |Größe in Bytes     |Größe
 90.000      |8.100.000.000      |**8,1 GB**
 100.000     |10.000.000.000     |**10 GB**
 1.000.000   |1.000.000.000.000  |**1 TB**
+
+max n = 46340, da n² = 2147395600 (int_max = 2147483647)

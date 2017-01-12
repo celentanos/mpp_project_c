@@ -346,20 +346,27 @@ int main(int argc, char **argv)
     int err = 0;
     // getopt ##################################################################
     int opt = 0;
+    int dFlag = 0;
     int gFlag = 0;
     int oFlag = 0;
     int pFlag = 0;
     int rFlag = 0;
-    int uFlag = 0;
-    uint usec = 1000;      /// default usleep-value
+    int tFlag = 0;
+    int times = 1;          /// default Versuch-Anzahl
+    uint usec = 1000;       /// default usec_sleep-value
     int gn, gx, gy, gw, gh;
     string genOpts;
 
     extern char *optarg;
     extern int optind, opterr, optopt;
     opterr = 0;
-    while ((opt = getopt(argc, argv, "f:g:opru::")) != -1)
+    while ((opt = getopt(argc, argv, "d::f:g:oprt::")) != -1)
         switch (opt) {
+        case 'd':
+            dFlag++;
+            if (optarg != NULL)
+                usec = (uint)stoul(optarg);
+            break;
         case 'f':
             fileName = optarg;
             break;
@@ -376,10 +383,10 @@ int main(int argc, char **argv)
         case 'r':
             rFlag++;
             break;
-        case 'u':
-            uFlag++;
+        case 't':
+            tFlag++;
             if (optarg != NULL)
-                usec = (uint)stoul(optarg);
+                times = stoi(optarg);
             break;
         case '?':
             if (optopt == 'f')
@@ -417,6 +424,7 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     if (rank == 0) { // Master #################################################
+        cout << "procSize:" << procSize << endl;
 
         if (gFlag) {        // g -----------------------------------------------
             if ((err = parseGenOptions(genOpts, gn, gx, gy, gw, gh)))
@@ -471,31 +479,39 @@ int main(int argc, char **argv)
             }
 
             // Senden der Datenpakete ------------------------------------------
-            MPI_Barrier(MPI_COMM_WORLD);
-            if (!blockDimRest)
-                for (int i = 1; i < procSize; ++i)
-                    MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
-            else {
-                for (int i = 1; i < procSize - 1; ++i)
-                    MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
-                MPI_Send(data + ((procSize - 2) * dim * blockDim), dim * blockDimRest, MPI_CHAR, procSize - 1, 99, MPI_COMM_WORLD);
-            }
-
-            // Empfangen der Resultate -----------------------------------------
             int result[PROC_NUMBER];
             int **results = new int *[procSize];
-            for (int i = 0; i < procSize; ++i)
-                results[i] = new int[PROC_NUMBER];
-//            memset(results, 0, (size_t)procSize * PROC_NUMBER * sizeof (int));
-            for (int i = 0; i < procSize; ++i)
-                memset(results[i], 0, PROC_NUMBER * sizeof (int));
+            for (int t = 0; t < times; ++t) {
+                // Zeit start --------------------------------------------------
+                MPI_Barrier(MPI_COMM_WORLD);
+                double time = MPI_Wtime();
 
-            for (int i = 1; i < procSize; ++i) {
-                MPI_Recv(result, PROC_NUMBER, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-                memcpy(results[result[PROC_RANK]], result, PROC_NUMBER * sizeof (int));
+                if (!blockDimRest)
+                    for (int i = 1; i < procSize; ++i)
+                        MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
+                else {
+                    for (int i = 1; i < procSize - 1; ++i)
+                        MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
+                    MPI_Send(data + ((procSize - 2) * dim * blockDim), dim * blockDimRest, MPI_CHAR, procSize - 1, 99, MPI_COMM_WORLD);
+                }
+
+                // Empfangen der Resultate -------------------------------------
+                for (int i = 0; i < procSize; ++i)
+                    results[i] = new int[PROC_NUMBER];
+                for (int i = 0; i < procSize; ++i)
+                    memset(results[i], 0, PROC_NUMBER * sizeof (int));
+
+                for (int i = 1; i < procSize; ++i) {
+                    MPI_Recv(result, PROC_NUMBER, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                    memcpy(results[result[PROC_RANK]], result, PROC_NUMBER * sizeof (int));
+                }
+                if (oFlag)
+                    printResults(procSize, results);
+
+                // Zeit stop ---------------------------------------------------
+                time = MPI_Wtime() - time;
+                printf("num:%d\ttime:%lfs\n", t, time);
             }
-            if (oFlag)
-                printResults(procSize, results);
 
             // Umrechnen der Koordinate ----------------------------------------
             if (dim % (procSize - 1) == 0)
@@ -539,21 +555,24 @@ int main(int argc, char **argv)
             MPI_Bcast(&dim, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
             MPI_Recv(&blockDim, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
+            // times -----------------------------------------------------------
             char *data = new char[dim * blockDim];
-            MPI_Barrier(MPI_COMM_WORLD);
-            MPI_Recv(data, dim * blockDim, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-
-            if (oFlag) {
-                if (uFlag)
-                    usleep((uint)rank * usec);
-                if ((err = printData(data, dim, blockDim, rank)))
-                    cout << "ERROR:" << err << endl;
-            }
-            // Finde Blöcke ----------------------------------------------------
             int *result = new int[PROC_NUMBER];
-            memset(result, PROC_EMPTY, PROC_NUMBER * sizeof (int));
-            findRectInBlock(data, result, rank, dim, blockDim);
-            MPI_Send(result, PROC_NUMBER, MPI_INT, ROOT, 99, MPI_COMM_WORLD);
+            for (int t = 0; t < times; ++t) {
+                MPI_Barrier(MPI_COMM_WORLD);
+                MPI_Recv(data, dim * blockDim, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+
+                if (oFlag) {
+                    if (dFlag)
+                        usleep((uint)rank * usec);
+                    if ((err = printData(data, dim, blockDim, rank)))
+                        cout << "ERROR:" << err << endl;
+                }
+                // Finde Blöcke ------------------------------------------------
+                memset(result, PROC_EMPTY, PROC_NUMBER * sizeof (int));
+                findRectInBlock(data, result, rank, dim, blockDim);
+                MPI_Send(result, PROC_NUMBER, MPI_INT, ROOT, 99, MPI_COMM_WORLD);
+            }
             delete[] result;
             delete[] data;
         }
