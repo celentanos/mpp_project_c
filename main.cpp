@@ -525,8 +525,8 @@ int main(int argc, char **argv)
                     results[i][PROC_J0] = results[i][PROC_J0] + (i - 1) * blockDim;
                     results[i][PROC_J1] = results[i][PROC_J1] + (i - 1) * blockDim;
                 }
-                results[procSize - 1][PROC_J0] = results[procSize - 1][PROC_J0] + (procSize - 1) * blockDimRest;
-                results[procSize - 1][PROC_J1] = results[procSize - 1][PROC_J1] + (procSize - 1) * blockDimRest;
+                results[procSize - 1][PROC_J0] = results[procSize - 1][PROC_J0] + (procSize - 2) * blockDim;
+                results[procSize - 1][PROC_J1] = results[procSize - 1][PROC_J1] + (procSize - 2) * blockDim;
             }
             if (oFlag)
                 printResults(procSize, results);
