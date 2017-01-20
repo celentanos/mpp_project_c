@@ -493,12 +493,12 @@ int main(int argc, char **argv)
             }
             // Zeit start ------------------------------------------------------
             for (int t = 0; t < times; ++t) {
-                MPI_Barrier(MPI_COMM_WORLD);
-                double time = MPI_Wtime();
-                // Empfangen der Resultate -------------------------------------
                 for (int i = 0; i < procSize; ++i)
                     memset(results[i], 0, PROC_NUMBER * sizeof (int));
+                MPI_Barrier(MPI_COMM_WORLD);
+                double time = MPI_Wtime();
 
+                // Empfangen der Resultate -------------------------------------
                 for (int i = 1; i < procSize; ++i) {
                     MPI_Recv(result, PROC_NUMBER, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
                     memcpy(results[result[PROC_RANK]], result, PROC_NUMBER * sizeof (int));
