@@ -10,6 +10,7 @@
 #include <iostream>     // es wird für den Compiler im Pool benötigt!
 #include <fstream>
 #include <limits>
+#include <math.h>       // fabs
 
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 
@@ -92,7 +93,7 @@ int checkProcResults(int ** &results, int procSize)
             if (k + 1 < procSize && results[k + 1][PROC_R] == RK_RECT) {
                 if (results[k][PROC_J0] != results[k + 1][PROC_J1] - 1) {
                     erg = 1;
-                    cout << "2 getrennte Rechtecke!" << endl;
+                    cout << "2 getrennte Rechtecke!" << k << endl;
                     break;
                 }
                 if (results[k][PROC_I0] != results[k + 1][PROC_I0]) {
@@ -156,8 +157,10 @@ int findRectInBlock(char *&data, int *&result, int rank, int dim, int blockDim)
                         result[PROC_R] = RK_WRONG_RECT;
 //                        cout << "case1, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
                         break;
-                    } else
+                    } else {
                         result[PROC_I1] = i;    // rechts
+                        result[PROC_J0] = j;    // unten
+                    }
                 } else if (result[PROC_I0] == i && result[PROC_J0] + 1 == j) {
                     inRect = 1;
                     result[PROC_J0] = j;        // unten
@@ -441,13 +444,16 @@ int main(int argc, char **argv)
             int dim;
             int blockDim = 0;
             int blockDimRest = 0;
+            double timeSeq = MPI_Wtime();
 
+            double timeReadData = MPI_Wtime();
             if ((err = readData(0, &data, &dim))) {
                 MPI_Bcast(&err, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
                 if (data)
                     delete[] data;
                 mpiExit(err);
             }
+            timeReadData = MPI_Wtime() - timeReadData;
 
             // beim dim-Fehler -> exit -----------------------------------------
             if (dim < procSize - 1) {
@@ -460,6 +466,7 @@ int main(int argc, char **argv)
                 MPI_Bcast(&err, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 
             // Senden der Init-Information -------------------------------------
+            double timeSendInit = MPI_Wtime();
             MPI_Bcast(&dim, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 
             if (dim % (procSize - 1) == 0) {
@@ -477,12 +484,15 @@ int main(int argc, char **argv)
                 blockDimRest = dim - (blockDim * (procSize - 2));
                 MPI_Send(&blockDimRest, 1, MPI_INT, procSize - 1, 99, MPI_COMM_WORLD);
             }
+            timeSendInit = MPI_Wtime() - timeSendInit;
 
             // Senden der Datenpakete ------------------------------------------
             int result[PROC_NUMBER];
             int **results = new int *[procSize];
             for (int i = 0; i < procSize; ++i)
                 results[i] = new int[PROC_NUMBER];
+
+            double timeSendData = MPI_Wtime();
             if (!blockDimRest)
                 for (int i = 1; i < procSize; ++i)
                     MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
@@ -491,7 +501,11 @@ int main(int argc, char **argv)
                     MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
                 MPI_Send(data + ((procSize - 2) * dim * blockDim), dim * blockDimRest, MPI_CHAR, procSize - 1, 99, MPI_COMM_WORLD);
             }
+            timeSendData = MPI_Wtime() - timeSendData;
+
             // Zeit start ------------------------------------------------------
+            double timesSum = MPI_Wtime();
+            vector<double> timesList;
             for (int t = 0; t < times; ++t) {
                 for (int i = 0; i < procSize; ++i)
                     memset(results[i], 0, PROC_NUMBER * sizeof (int));
@@ -504,9 +518,10 @@ int main(int argc, char **argv)
                     memcpy(results[result[PROC_RANK]], result, PROC_NUMBER * sizeof (int));
                 }
                 // Zeit stop ---------------------------------------------------
-                time = MPI_Wtime() - time;
-                printf("num:%d\ttime:%lfs\n", t, time);
+                timesList.push_back(MPI_Wtime() - time);
             }
+            timesSum = MPI_Wtime() - timesSum;
+
             if (oFlag)
                 printResults(procSize, results);
 
@@ -524,11 +539,14 @@ int main(int argc, char **argv)
                 results[procSize - 1][PROC_J0] = results[procSize - 1][PROC_J0] + (procSize - 2) * blockDim;
                 results[procSize - 1][PROC_J1] = results[procSize - 1][PROC_J1] + (procSize - 2) * blockDim;
             }
+
             if (oFlag)
                 printResults(procSize, results);
 
             // Auswerten der einzelnen Resultate -------------------------------
+            double timeCheckResults = MPI_Wtime();
             checkProcResults(results, procSize);
+            timeCheckResults = MPI_Wtime() - timeCheckResults;
 
             // Aufräumen -------------------------------------------------------
             for (int i = 0; i < procSize; ++i)
@@ -538,6 +556,41 @@ int main(int argc, char **argv)
                 delete[] results;
             if (data)
                 delete[] data;
+
+            timeSeq = MPI_Wtime() - timeSeq - timesSum;
+
+            if (tFlag) {
+                cout.precision(6);
+                cout << fixed;
+
+                double mittelwert = 0;
+                double abstaendeSum = 0;
+                double varianz = 0;         // mittlere quadratische Abweichung
+
+                for (int i = 0; i < times; ++i) {
+                    cout << "time_" << i << "\t\t" << timesList.at((ulong)i) << endl;
+                    if (i > 0)
+                        mittelwert += timesList.at((ulong)i);
+                }
+                mittelwert /= (times - 1);
+
+                for (int i = 1; i < times; ++i)
+                    abstaendeSum += pow((timesList.at((ulong)i) - mittelwert), 2.0);
+                varianz = abstaendeSum / (double)(times - 1);
+
+                cout << endl << "mittel:\t\t" << mittelwert << endl;
+                cout << "varianz:\t" << varianz << endl;
+                cout << "stdAbweichung:\t" << sqrt(varianz) << endl << endl;
+
+                cout << "timeSeq:\t" << timeSeq << endl;
+                cout << "timeReadData:\t" << timeReadData << endl;
+                cout << "timeCheckRes:\t" << timeCheckResults << endl;
+                cout << "timesSum:\t" << timesSum << endl;
+                cout << "timeSendInit:\t" << timeSendInit << endl;
+                cout << "timeSendData:\t" << timeSendData << endl;
+
+                cout << "timeSeq - timeReadData: " << timeSeq - timeReadData << endl;
+            }
         }
     } else // Slave ############################################################
         if (rFlag) {
@@ -565,7 +618,6 @@ int main(int argc, char **argv)
                 if ((err = printData(data, dim, blockDim, rank)))
                     cout << "ERROR:" << err << endl;
             }
-//                cout << "rank:" << rank << "\tblockDim:" << blockDim << "\tdim:" << dim << endl;
             // Finde Blöcke ------------------------------------------------
             for (int t = 0; t < times; ++t) {
                 memset(result, PROC_EMPTY, PROC_NUMBER * sizeof (int));
