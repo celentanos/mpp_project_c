@@ -350,6 +350,14 @@ void mpiExit(int err)
     exit(0);
 }
 
+int sumVector(vector<int> &v, int index)
+{
+    int sum = 0;
+    for (int i = 0; i < index; ++i)
+        sum += v[(ulong)i];
+    return  sum;
+}
+
 int main(int argc, char **argv)
 {
     int err = 0;
@@ -461,8 +469,6 @@ int main(int argc, char **argv)
         } else if (rFlag) { // r -----------------------------------------------
             char *data = 0;
             int dim;
-            int blockDim = 0;
-            int blockDimRest = 0;
             double tAll = MPI_Wtime();
 
             double tRD = MPI_Wtime();
@@ -485,24 +491,18 @@ int main(int argc, char **argv)
                 MPI_Bcast(&err, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 
             // Senden der Init-Information -------------------------------------
+            vector<int> blockd((ulong)procSize - 1);
             double tSendInit = MPI_Wtime();
             MPI_Bcast(&dim, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
 
-            if (dim % (procSize - 1) == 0) {
-                blockDim = dim / (procSize - 1);
-                for (int i = 1; i < procSize; ++i)
-                    MPI_Send(&blockDim, 1, MPI_INT, i, 99, MPI_COMM_WORLD);
-            } else {
-                blockDim = dim / (procSize - 1);
-                if (dim - (blockDim * (procSize - 2)) > procSize - 2)
-                    blockDim++;
+            int tempd = dim % (procSize - 1);
+            for (ulong i = 0; i < blockd.size(); ++i)
+                blockd[i] = dim / (procSize - 1);
+            for (ulong i = 0; i < (ulong)tempd; ++i)
+                blockd[i]++;
+            for (int i = 0; i < (int)blockd.size(); ++i)
+                MPI_Send(&blockd[(ulong)i], 1, MPI_INT, i + 1, 99, MPI_COMM_WORLD);
 
-                for (int i = 1; i < procSize - 1; ++i)
-                    MPI_Send(&blockDim, 1, MPI_INT, i, 99, MPI_COMM_WORLD);
-
-                blockDimRest = dim - (blockDim * (procSize - 2));
-                MPI_Send(&blockDimRest, 1, MPI_INT, procSize - 1, 99, MPI_COMM_WORLD);
-            }
             tSendInit = MPI_Wtime() - tSendInit;
 
             // Senden der Datenpakete ------------------------------------------
@@ -512,14 +512,13 @@ int main(int argc, char **argv)
                 results[i] = new int[PROC_NUMBER];
 
             double tSendData = MPI_Wtime();
-            if (!blockDimRest)
-                for (int i = 1; i < procSize; ++i)
-                    MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
-            else {
-                for (int i = 1; i < procSize - 1; ++i)
-                    MPI_Send(data + ((i - 1) * dim * blockDim), dim * blockDim, MPI_CHAR, i, 99, MPI_COMM_WORLD);
-                MPI_Send(data + ((procSize - 2) * dim * blockDim), dim * blockDimRest, MPI_CHAR, procSize - 1, 99, MPI_COMM_WORLD);
-            }
+
+            for (int i = 0; i < (int)blockd.size(); ++i)
+                if (i == 0)
+                    MPI_Send(data, dim * blockd[(ulong)i], MPI_CHAR, i + 1, 99, MPI_COMM_WORLD);
+                else
+                    MPI_Send(data + dim * sumVector(blockd, i), dim * blockd[(ulong)i], MPI_CHAR, i + 1, 99, MPI_COMM_WORLD);
+
             tSendData = MPI_Wtime() - tSendData;
 
             // Zeit start ------------------------------------------------------
@@ -545,18 +544,9 @@ int main(int argc, char **argv)
                 printResults(procSize, results);
 
             // Umrechnen der Koordinate ----------------------------------------
-            if (dim % (procSize - 1) == 0)
-                for (int i = 2; i < procSize; ++i) {
-                    results[i][PROC_J0] = results[i][PROC_J0] + (i - 1) * blockDim;
-                    results[i][PROC_J1] = results[i][PROC_J1] + (i - 1) * blockDim;
-                }
-            else {
-                for (int i = 2; i < procSize - 1; ++i) {
-                    results[i][PROC_J0] = results[i][PROC_J0] + (i - 1) * blockDim;
-                    results[i][PROC_J1] = results[i][PROC_J1] + (i - 1) * blockDim;
-                }
-                results[procSize - 1][PROC_J0] = results[procSize - 1][PROC_J0] + (procSize - 2) * blockDim;
-                results[procSize - 1][PROC_J1] = results[procSize - 1][PROC_J1] + (procSize - 2) * blockDim;
+            for (int i = 2; i < procSize; ++i) {
+                results[i][PROC_J0] = results[i][PROC_J0] + sumVector(blockd, i - 1); // unten
+                results[i][PROC_J1] = results[i][PROC_J1] + sumVector(blockd, i - 1); // oben
             }
 
             if (oFlag)
