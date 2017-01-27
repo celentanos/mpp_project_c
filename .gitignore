@@ -4,3 +4,5 @@ project*
 put.sh
 *autosave
 putdata*
+pull.sh
+push.sh
