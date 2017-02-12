@@ -69,9 +69,9 @@ int checkProcResults(int ** &results, int procSize)
     int i1 = 0;
     int j0 = 0;
     int j1 = 0;
-    int erg = 1;
-    int inRect = 0;
-    int inRectFlag = 0;
+    int erg = 1;        /// 0:true, 1:false
+    int inRect = 0;     /// im Rect
+    int inRectFlag = 0; /// erster Rect gefunden
     for (int k = 1; k < procSize; ++k) {
         if (results[k][PROC_R] == RK_RECT) {
             if (!inRectFlag) {
@@ -87,29 +87,29 @@ int checkProcResults(int ** &results, int procSize)
                     break;
                 }
             }
-            if (k == 1) {                       // Wenn Rect nur im ersten Block
+            if (k == 1) {                       // Wenn Rect nur im ersten Block -> wird auch j0 gesetzt
                 erg = 0;
                 j0 = results[k][PROC_J0];
             }
-            if (k + 1 < procSize && results[k + 1][PROC_R] == RK_RECT) {
+            if (k + 1 < procSize && results[k + 1][PROC_R] == RK_RECT) {    // liegen an einander
                 if (results[k][PROC_J0] != results[k + 1][PROC_J1] - 1) {
                     erg = 1;
                     cout << "2 getrennte Rechtecke!" << endl;
                     break;
                 }
-                if (results[k][PROC_I0] != results[k + 1][PROC_I0]) {
+                if (results[k][PROC_I0] != results[k + 1][PROC_I0]) {       // linkes Rand
                     erg = 1;
                     cout << "Rechtecke unterscheiden sich im LINKEN Rand!" << endl;
                     break;
                 }
-                if (results[k][PROC_I1] != results[k + 1][PROC_I1]) {
+                if (results[k][PROC_I1] != results[k + 1][PROC_I1]) {       // rechtes Rand
                     erg = 1;
                     cout << "Rechtecke unterscheiden sich im RECHTEN Rand!" << endl;
                     break;
                 }
                 erg = 0;
-                j0 = results[k + 1][PROC_J0];
-            } else if (k == procSize - 1) {      // Wenn Rect nur im letzten Block
+                j0 = results[k + 1][PROC_J0];   // wenn alles ok -> j0 wird gesetzt
+            } else if (k == procSize - 1) {     // Wenn Rect nur im letzten Block
                 erg = 0;
                 j0 = results[k][PROC_J0];
             }
@@ -130,25 +130,25 @@ int checkProcResults(int ** &results, int procSize)
 int findRectInBlock(char *&data, int *&result, int rank, int dim, int blockDim)
 {
     result[PROC_RANK] = rank;
-    result[PROC_R] = RK_NO_RECT;                // R(k) = 2 (kein Rechteck)
+    result[PROC_R] = RK_NO_RECT;                /// R(k) = 2 (kein Rechteck)
     int inRect = 0;
-    int ir1First = 0;
-    int jFirst = 0;
+    int ir1First = 0;                           /// rechter Rand ersten Rect-Zeile
+    int jFirst = 0;                             /// erstes Rect in der Zeile jFirst
 
     for (int j = 0; j < blockDim; ++j) {
         for (int i = 0; i < dim; ++i) {
-            if (data[(j * dim) + i] == DATA_1_INT) { // 1 ##############
-                if (result[PROC_I0] == PROC_EMPTY) {
+            if (data[(j * dim) + i] == DATA_1_INT) { // 1 ######################
+                if (result[PROC_I0] == PROC_EMPTY) { // erstes init
                     inRect = 1;
                     result[PROC_R] = RK_RECT;
                     result[PROC_I0] = i;        // links
                     result[PROC_I1] = i;        // rechts
                     result[PROC_J0] = j;        // unten
                     result[PROC_J1] = j;        // oben
-                    jFirst = j;
+                    jFirst = j;                 // erstes Rect in der Zeile jFirst
                 }
-                if (inRect) {
-                    if (jFirst == j) {
+                if (inRect) {                   // wenn im Rect
+                    if (jFirst == j) {          // nur in der ersten Zeile wo erstes Rect
                         ir1First = i;
                         result[PROC_I1] = i;    // rechts
                     } else if (i > ir1First) {
@@ -162,20 +162,20 @@ int findRectInBlock(char *&data, int *&result, int rank, int dim, int blockDim)
                         result[PROC_I1] = i;    // rechts
                         result[PROC_J0] = j;    // unten
                     }
-                } else if (result[PROC_I0] == i && result[PROC_J0] + 1 == j) {
+                } else if (result[PROC_I0] == i && result[PROC_J0] + 1 == j) { // neue Zeile -> linker Rand & Zusammenhang werden geprüft
                     inRect = 1;
                     result[PROC_J0] = j;        // unten
                 } else {
-                    /* ..XXX.X.
+                    /* ..X.X...
                      * ...XX...
                      * ..XXX... */
                     result[PROC_R] = RK_WRONG_RECT;
 //                    cout << "case2, rank:" << rank << "\tj:" << j << "\ti:" << i << endl;
                     break;
                 }
-            } else { // 0 ##############################################
+            } else { // 0 ######################################################
                 if (inRect && i)
-                    if (ir1First >= i) {
+                    if (ir1First >= i) { // muss geprüft werden, ob rechter Rand erreicht wurde
                         /* ..XXX..
                          * ..XX...
                          * ..XXX.. */
