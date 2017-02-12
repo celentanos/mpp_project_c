@@ -6,3 +6,4 @@ put.sh
 putdata*
 pull.sh
 push.sh
+*.zip
